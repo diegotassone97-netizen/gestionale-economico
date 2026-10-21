@@ -1,0 +1,8 @@
+{
+  "name": "Remix Controllo Economico \u0026 Gestione",
+  "description": "Strumento di controllo gestionale personale per monitorare fatturato aggregato o puntuale, spese operative, marginalità e confronto periodi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

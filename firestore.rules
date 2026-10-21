@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email_verified == true && request.auth.token.email.lower() == 'diegotassone97@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidRevenue(data) {
+      return data.keys().hasAll(['date', 'amount', 'description', 'type', 'stream', 'paymentStatus', 'createdBy']) &&
+        data.keys().hasOnly(['id', 'date', 'amount', 'description', 'type', 'aggregationPeriod', 'stream', 'clientOrReference', 'paymentStatus', 'notes', 'createdAt', 'updatedAt', 'createdBy']) &&
+        data.amount is number && data.amount >= 0 &&
+        data.description is string && data.description.size() <= 300 &&
+        data.stream is string && data.stream.size() <= 100 &&
+        data.type in ['aggregato', 'puntuale'] &&
+        data.paymentStatus in ['incassato', 'in_attesa', 'parziale'] &&
+        data.date is string && data.date.size() == 10 &&
+        data.createdBy is string && data.createdBy.size() <= 128 &&
+        (!('clientOrReference' in data) || (data.clientOrReference is string && data.clientOrReference.size() <= 150)) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+        (!('aggregationPeriod' in data) || (data.aggregationPeriod in ['giornaliero', 'settimanale', 'mensile', 'progetto', 'canale', 'periodico']));
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['date', 'amount', 'description', 'category', 'nature', 'paymentMethod', 'paymentStatus', 'createdBy']) &&
+        data.keys().hasOnly(['id', 'date', 'amount', 'description', 'category', 'nature', 'supplier', 'paymentMethod', 'paymentStatus', 'isRecurring', 'recurringFrequency', 'notes', 'createdAt', 'updatedAt', 'createdBy']) &&
+        data.amount is number && data.amount >= 0 &&
+        data.description is string && data.description.size() <= 300 &&
+        data.category is string && data.category.size() <= 100 &&
+        data.nature in ['fissa', 'variabile'] &&
+        data.paymentMethod in ['bonifico', 'carta', 'riba_rid', 'contanti', 'paypal', 'f24_tasse_stimate', 'altro'] &&
+        data.paymentStatus in ['pagata', 'da_pagare', 'programmata'] &&
+        data.date is string && data.date.size() == 10 &&
+        data.createdBy is string && data.createdBy.size() <= 128 &&
+        (!('supplier' in data) || (data.supplier is string && data.supplier.size() <= 150)) &&
+        (!('isRecurring' in data) || (data.isRecurring is bool)) &&
+        (!('recurringFrequency' in data) || (data.recurringFrequency in ['mensile', 'trimestrale', 'annuale'])) &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'name', 'role', 'status']) &&
+        data.keys().hasOnly(['id', 'email', 'name', 'role', 'status', 'addedAt', 'lastLogin', 'notes']) &&
+        data.email is string && data.email.size() <= 150 &&
+        data.name is string && data.name.size() <= 100 &&
+        data.role in ['admin', 'collaborator'] &&
+        data.status in ['active', 'suspended'] &&
+        (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    // Admins collection
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && (isAdmin() || request.auth.uid == adminId);
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Authorized users list
+    match /gestionale_utenti_autorizzati/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update: if isAdmin() && isValidId(userId) && isValidUser(incoming());
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // Revenues collection
+    match /gestionale_fatturato/{revenueId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerified() && isValidId(revenueId) && isValidRevenue(incoming());
+      allow update: if isVerified() && isValidId(revenueId) && isValidRevenue(incoming());
+      allow delete: if isVerified() && isValidId(revenueId);
+    }
+
+    // Expenses collection
+    match /gestionale_spese/{expenseId} {
+      allow get, list: if isSignedIn();
+      allow create: if isVerified() && isValidId(expenseId) && isValidExpense(incoming());
+      allow update: if isVerified() && isValidId(expenseId) && isValidExpense(incoming());
+      allow delete: if isVerified() && isValidId(expenseId);
+    }
+  }
+}

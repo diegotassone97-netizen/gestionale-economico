@@ -1,0 +1,12 @@
+{
+  "projectId": "gestiolane-economico",
+  "appId": "1:881232310700:web:2043a689c6007329270a09",
+  "apiKey": "AIzaSyD8H4kyBrtddkGTDBhobflucTV2mFtcdc8",
+  "authDomain": "gestiolane-economico.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "gestiolane-economico.firebasestorage.app",
+  "messagingSenderId": "881232310700",
+  "measurementId": "",
+  "oAuthClientId": "",
+  "recaptchaSiteKey": ""
+}
